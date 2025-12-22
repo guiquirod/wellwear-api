@@ -19,7 +19,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if (!$type || !$supType || !$fabricTypes || !$mainColor || !$sleeve || !$seasons) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Faltan campos requeridos'
             ]);
             exit();
@@ -28,7 +28,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if (!isset($_FILES['picture'])) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Se requiere una imagen de la prenda'
             ]);
             exit();
@@ -41,7 +41,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if ($file['size'] > $maxFileSize || !in_array($file['type'], $allowedTypes)) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Imagen no soportada o demasiado grande (máximo 3MB)'
             ]);
             exit();
@@ -50,7 +50,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if ($file['error'] !== UPLOAD_ERR_OK) {
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Error al subir la imagen'
             ]);
             exit();
@@ -64,7 +64,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if (!move_uploaded_file($file['tmp_name'], $fileFullPath)) {
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Error al guardar la imagen'
             ]);
             exit();
@@ -78,7 +78,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if (empty($fabricTypesDecoded)) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Se requiere al menos un tipo de tejido'
             ]);
             exit();
@@ -87,32 +87,31 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         if (empty($seasonsDecoded)) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Se requiere al menos una estacion del año'
             ]);
             exit();
         }
 
         $insertQuery = 'INSERT INTO garment (user_id, type, sup_type, fabric_type, sleeve, seasons, picture, main_color, pattern, is_second_hand) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        $insertGarmentSth = $con->prepare($insertQuery);
 
-        $sth = $con->prepare($insertQuery);
-
-        if (!$sth) {
+        if (!$insertGarmentSth) {
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('isssssssii', $userId, $type, $supType, $fabricTypes, $sleeve, $seasons, $pictureUrl, $mainColor, $pattern, $isSecondHand);
+        $insertGarmentSth->bind_param('isssssssii', $userId, $type, $supType, $fabricTypes, $sleeve, $seasons, $pictureUrl, $mainColor, $pattern, $isSecondHand);
 
-        if ($sth->execute()) {
+        if ($insertGarmentSth->execute()) {
             $garmentId = $con->insert_id;
             http_response_code(200);
             echo json_encode([
-                'result' => true,
+                'success' => true,
                 'message' => 'Prenda creada satisfactoriamente',
                 'data' => [
                     'id' => $garmentId,
@@ -131,17 +130,18 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             unlink($fileFullPath);
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $insertGarmentSth->error
             ]);
         }
 
-        $sth->close();
+        $insertGarmentSth->close();
     }
 } else {
     http_response_code(400);
     echo json_encode([
-        'result' => false,
-        'message' => 'No autorizado'
+        'success' => false,
+        'message' => 'Usuario no loggeado'
     ]);
 }
+?>

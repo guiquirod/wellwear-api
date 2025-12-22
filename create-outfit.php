@@ -5,17 +5,16 @@ include 'cors-config.php';
 
 if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['user_id'])) {
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $json = file_get_contents('php://input');
-        $params = json_decode($json, true);
+        $data = json_decode(file_get_contents('php://input'), true);
 
         $userId = $_SESSION['user_id'];
-        $garmentsIds = $params['garmentIds'] ?? null;
+        $garmentsIds = $data['garmentIds'] ?? null;
 
         if (empty($garmentsIds)) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
-                'message' => 'Faltan campos requeridos'
+                'success' => false,
+                'message' => 'Faltan prendas'
             ]);
             exit();
         }
@@ -23,93 +22,93 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         $con->begin_transaction();
 
         $insertOutfitQuery = 'INSERT INTO outfit (user_id) VALUES (?)';
-        $sth = $con->prepare($insertOutfitQuery);
+        $insertUpdateSth = $con->prepare($insertOutfitQuery);
 
-        if (!$sth) {
+        if (!$insertUpdateSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('i', $userId);
+        $insertUpdateSth->bind_param('i', $userId);
 
-        if (!$sth->execute()) {
+        if (!$insertUpdateSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $insertUpdateSth->error
             ]);
             exit();
         }
 
         $outfitId = $con->insert_id;
-        $sth->close();
+        $insertUpdateSth->close();
 
         $insertGarmentQuery = 'INSERT INTO outfit_garment (outfit_id, garment_id) VALUES (?, ?)';
-        $sth = $con->prepare($insertGarmentQuery);
+        $insertGarmentSth = $con->prepare($insertGarmentQuery);
 
-        if (!$sth) {
+        if (!$insertGarmentSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
         foreach ($garmentsIds as $garmentId) {
-            $sth->bind_param('ii', $outfitId, $garmentId);
-            if (!$sth->execute()) {
+            $insertGarmentSth->bind_param('ii', $outfitId, $garmentId);
+            if (!$insertGarmentSth->execute()) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
-                    'message' => $sth->error
+                    'success' => false,
+                    'message' => $insertGarmentSth->error
                 ]);
                 exit();
             }
         }
 
-        $sth->close();
+        $insertGarmentSth->close();
 
         $updateOutfitedQuery = 'UPDATE garment SET outfited = outfited + 1 WHERE id = ?';
-        $sth = $con->prepare($updateOutfitedQuery);
+        $updateGarmentSth = $con->prepare($updateOutfitedQuery);
 
-        if (!$sth) {
+        if (!$updateGarmentSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
         foreach ($garmentsIds as $garmentId) {
-            $sth->bind_param('i', $garmentId);
-            if (!$sth->execute()) {
+            $updateGarmentSth->bind_param('i', $garmentId);
+            if (!$updateGarmentSth->execute()) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
-                    'message' => $sth->error
+                    'success' => false,
+                    'message' => $updateGarmentSth->error
                 ]);
                 exit();
             }
         }
 
-        $sth->close();
+        $updateGarmentSth->close();
         $con->commit();
 
         http_response_code(200);
         echo json_encode([
-            'result' => true,
+            'success' => true,
             'message' => 'Outfit creado satisfactoriamente',
             'data' => [
                 'id' => $outfitId,
@@ -117,5 +116,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             ]
         ]);
     }
+} else {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Usuario no loggeado'
+    ]);
 }
 ?>

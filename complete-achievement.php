@@ -55,9 +55,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     $currentWeekStart = strtotime('monday this week', $currentTimestamp);
                     $canComplete = $completedWeekStart < $currentWeekStart;
                 } else if ($achievement['type'] === 'monthly') {
-                    $completedMonthStart = strtotime('first day of this month', $completedTimestamp);
-                    $currentMonthStart = strtotime('first day of this month', $currentTimestamp);
-                    $canComplete = $completedMonthStart < $currentMonthStart;
+                    $completionYearMonth = date('Y-m', $completedTimestamp);
+                    $currentYearMonth = date('Y-m', $currentTimestamp);
+                    $canComplete = $completionYearMonth < $currentYearMonth;
                 }
             }
 
@@ -74,10 +74,10 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                                     VALUES (?, ?, NOW())
                                     ON DUPLICATE KEY UPDATE completed_at = NOW()';
 
-            $insertSth = $con->prepare($insertOrUpdateQuery);
-            $insertSth->bind_param('ii', $userId, $achievementId);
+            $insertUpdateSth = $con->prepare($insertOrUpdateQuery);
+            $insertUpdateSth->bind_param('ii', $userId, $achievementId);
 
-            if ($insertSth->execute()) {
+            if ($insertUpdateSth->execute()) {
                 $selectUserAchievementQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
                 $userAchievementSth = $con->prepare($selectUserAchievementQuery);
 
@@ -166,11 +166,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                 http_response_code(500);
                 echo json_encode([
                     'success' => false,
-                    'message' => $insertSth->error
+                    'message' => $insertUpdateSth->error
                 ]);
             }
 
-            $insertSth->close();
+            $insertUpdateSth->close();
         } else {
             http_response_code(500);
             echo json_encode([

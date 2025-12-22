@@ -9,7 +9,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         $date = $_GET['date'] ?? null;
 
         if ($date) {
-            $selectQuery = 'SELECT outfit.id, outfit_garment.garment_id,
+            $getOutfitsQuery = 'SELECT outfit.id, outfit_garment.garment_id,
                             garment.type, garment.sup_type, garment.fabric_type, garment.sleeve, garment.seasons,
                             garment.picture, garment.main_color, garment.pattern, garment.is_second_hand, garment.worn, garment.outfited
                             FROM outfit
@@ -19,9 +19,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                             WHERE outfit.user_id = ? AND outfit_calendar.date_worn = ?
                             ORDER BY outfit.id, FIELD(garment.sup_type, "superior", "inferior")';
 
-            $sth = $con->prepare($selectQuery);
+            $getOutfitsSth = $con->prepare($getOutfitsQuery);
 
-            if (!$sth) {
+            if (!$getOutfitsSth) {
                 http_response_code(500);
                 echo json_encode([
                     'success' => false,
@@ -30,9 +30,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                 exit();
             }
 
-            $sth->bind_param('is', $userId, $date);
+            $getOutfitsSth->bind_param('is', $userId, $date);
         } else {
-            $selectQuery = 'SELECT outfit.id, outfit_garment.garment_id,
+            $getOutfitsQuery = 'SELECT outfit.id, outfit_garment.garment_id,
                             garment.type, garment.sup_type, garment.fabric_type, garment.sleeve, garment.seasons,
                             garment.picture, garment.main_color, garment.pattern, garment.is_second_hand, garment.worn, garment.outfited
                             FROM outfit
@@ -41,9 +41,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                             WHERE outfit.user_id = ?
                             ORDER BY outfit.id, FIELD(garment.sup_type, "superior", "inferior")';
 
-            $sth = $con->prepare($selectQuery);
+            $getOutfitsSth = $con->prepare($getOutfitsQuery);
 
-            if (!$sth) {
+            if (!$getOutfitsSth) {
                 http_response_code(500);
                 echo json_encode([
                     'success' => false,
@@ -52,19 +52,19 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                 exit();
             }
 
-            $sth->bind_param('i', $userId);
+            $getOutfitsSth->bind_param('i', $userId);
         }
 
-        if ($sth->execute()) {
-            $result = $sth->get_result();
+        if ($getOutfitsSth->execute()) {
+            $outfitsResult = $getOutfitsSth->get_result();
             $outfits = [];
             $currentOutfitId = null;
             $currentOutfit = null;
 
-            while ($row = $result->fetch_assoc()) {
+            while ($row = $outfitsResult->fetch_assoc()) {
                 if ($currentOutfitId !== $row['id']) {
                     if ($currentOutfit !== null) {
-                        array_push($outfits, $currentOutfit);
+                        $outfits[] = $currentOutfit;
                     }
 
                     $currentOutfitId = $row['id'];
@@ -91,7 +91,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             }
 
             if ($currentOutfit !== null) {
-                array_push($outfits, $currentOutfit);
+                $outfits[] = $currentOutfit;
             }
 
             if (empty($outfits)) {
@@ -111,11 +111,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'message' => $sth->error
+                'message' => $getOutfitsSth->error
             ]);
         }
 
-        $sth->close();
+        $getOutfitsSth->close();
     }
 } else {
     http_response_code(400);

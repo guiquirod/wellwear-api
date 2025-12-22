@@ -5,118 +5,117 @@ include 'cors-config.php';
 
 if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['user_id'])) {
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $input = file_get_contents('php://input');
-        $params = json_decode($input, true);
+        $data = json_decode(file_get_contents('php://input'), true);
 
         $userId = $_SESSION['user_id'];
-        $outfitId = $params['outfitId'] ?? null;
-        $wornDate = $params['wornDate'] ?? $params['date'];
+        $outfitId = $data['outfitId'] ?? null;
+        $wornDate = $data['wornDate'] ?? $data['date'];
 
         if (!$outfitId) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Falta el ID del outfit'
             ]);
             exit();
         }
 
-        $verifyQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
-        $sth = $con->prepare($verifyQuery);
-        $sth->bind_param('ii', $outfitId, $userId);
-        $sth->execute();
-        $result = $sth->get_result();
+        $checkOutfitQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
+        $checkOutfitSth = $con->prepare($checkOutfitQuery);
+        $checkOutfitSth->bind_param('ii', $outfitId, $userId);
+        $checkOutfitSth->execute();
+        $outfitResult = $checkOutfitSth->get_result();
 
-        if ($result->num_rows === 0) {
+        if ($outfitResult->num_rows === 0) {
             http_response_code(404);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Outfit no encontrado'
             ]);
             exit();
         }
-        $sth->close();
+        $checkOutfitSth->close();
 
-        $checkQuery = 'SELECT id FROM outfit_calendar WHERE outfit_id = ? AND date_worn = ?';
-        $sth = $con->prepare($checkQuery);
-        $sth->bind_param('is', $outfitId, $wornDate);
-        $sth->execute();
-        $result = $sth->get_result();
+        $checkOutfitCalendarQuery = 'SELECT id FROM outfit_calendar WHERE outfit_id = ? AND date_worn = ?';
+        $checkOutfitCalendarSth = $con->prepare($checkOutfitCalendarQuery);
+        $checkOutfitCalendarSth->bind_param('is', $outfitId, $wornDate);
+        $checkOutfitCalendarSth->execute();
+        $outfitCalendarResult = $checkOutfitCalendarSth->get_result();
 
-        if ($result->num_rows > 0) {
+        if ($outfitCalendarResult->num_rows > 0) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Este outfit ya está asignado a esta fecha'
             ]);
             exit();
         }
-        $sth->close();
+        $checkOutfitCalendarSth->close();
 
         $con->begin_transaction();
 
-        $insertCalendar = 'INSERT INTO outfit_calendar (outfit_id, date_worn) VALUES (?, ?)';
-        $sth = $con->prepare($insertCalendar);
+        $insertOutfitCalendarQuery = 'INSERT INTO outfit_calendar (outfit_id, date_worn) VALUES (?, ?)';
+        $insertOutfitCalendarSth = $con->prepare($insertOutfitCalendarQuery);
 
-        if (!$sth) {
+        if (!$insertOutfitCalendarSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('is', $outfitId, $wornDate);
+        $insertOutfitCalendarSth->bind_param('is', $outfitId, $wornDate);
 
-        if (!$sth->execute()) {
+        if (!$insertOutfitCalendarSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => 'Error al registrar uso: ' . $sth->error
+                'success' => false,
+                'message' => 'Error al registrar uso: ' . $insertOutfitCalendarSth->error
             ]);
             exit();
         }
 
         $calendarId = $con->insert_id;
-        $sth->close();
+        $insertOutfitCalendarSth->close();
 
         $updateUsageQuery = 'UPDATE garment
                             JOIN outfit_garment ON garment.id = outfit_garment.garment_id
                             SET garment.worn = garment.worn + 1
                             WHERE outfit_garment.outfit_id = ?';
-        $sth = $con->prepare($updateUsageQuery);
+        $updateUsageSth = $con->prepare($updateUsageQuery);
 
-        if (!$sth) {
+        if (!$updateUsageSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('i', $outfitId);
+        $updateUsageSth->bind_param('i', $outfitId);
 
-        if (!$sth->execute()) {
+        if (!$updateUsageSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $updateUsageSth->error
             ]);
             exit();
         }
 
-        $sth->close();
+        $updateUsageSth->close();
 
         $con->commit();
         http_response_code(200);
         echo json_encode([
-            'result' => true,
+            'success' => true,
             'message' => 'Uso de outfit registrado satisfactoriamente',
             'data' => [
                 'id' => $calendarId,
@@ -127,110 +126,109 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
     }
 
     if ($_SERVER['REQUEST_METHOD'] == 'DELETE') {
-        $input = file_get_contents('php://input');
-        $params = json_decode($input, true);
+        $data = json_decode(file_get_contents('php://input'), true);
 
         $userId = $_SESSION['user_id'];
-        $outfitId = $params['outfitId'] ?? null;
-        $wornDate = $params['wornDate'] ?? $params['date'] ?? null;
+        $outfitId = $data['outfitId'] ?? null;
+        $wornDate = $data['wornDate'] ?? $data['date'];
 
         if (!$outfitId || !$wornDate) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Faltan el ID del outfit o la fecha'
             ]);
             exit();
         }
 
-        $verifyQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
-        $sth = $con->prepare($verifyQuery);
-        $sth->bind_param('ii', $outfitId, $userId);
-        $sth->execute();
-        $result = $sth->get_result();
+        $checkOutfitQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
+        $checkOutfitSth = $con->prepare($checkOutfitQuery);
+        $checkOutfitSth->bind_param('ii', $outfitId, $userId);
+        $checkOutfitSth->execute();
+        $outfitResult = $checkOutfitSth->get_result();
 
-        if ($result->num_rows === 0) {
+        if ($outfitResult->num_rows === 0) {
             http_response_code(404);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Outfit no encontrado'
             ]);
             exit();
         }
-        $sth->close();
+        $checkOutfitSth->close();
 
         $con->begin_transaction();
 
         $deleteCalendarQuery = 'DELETE FROM outfit_calendar WHERE outfit_id = ? AND date_worn = ?';
-        $sth = $con->prepare($deleteCalendarQuery);
+        $deleteCalendarSth = $con->prepare($deleteCalendarQuery);
 
-        if (!$sth) {
+        if (!$deleteCalendarSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('is', $outfitId, $wornDate);
+        $deleteCalendarSth->bind_param('is', $outfitId, $wornDate);
 
-        if (!$sth->execute()) {
+        if (!$deleteCalendarSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $deleteCalendarSth->error
             ]);
             exit();
         }
 
-        if ($sth->affected_rows === 0) {
-            $sth->close();
+        if ($deleteCalendarSth->affected_rows === 0) {
+            $deleteCalendarSth->close();
             $con->rollback();
             http_response_code(404);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'El outfit no está registrado en esta fecha'
             ]);
             exit();
         }
-        $sth->close();
+        $deleteCalendarSth->close();
 
         $decrementWornQuery = 'UPDATE garment
                               JOIN outfit_garment ON garment.id = outfit_garment.garment_id
                               SET garment.worn = garment.worn - 1
                               WHERE outfit_garment.outfit_id = ? AND garment.worn > 0';
-        $sth = $con->prepare($decrementWornQuery);
+        $decrementWornSth = $con->prepare($decrementWornQuery);
 
-        if (!$sth) {
+        if (!$decrementWornSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('i', $outfitId);
+        $decrementWornSth->bind_param('i', $outfitId);
 
-        if (!$sth->execute()) {
+        if (!$decrementWornSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $decrementWornSth->error
             ]);
             exit();
         }
-        $sth->close();
+        $decrementWornSth->close();
 
         $con->commit();
         http_response_code(200);
         echo json_encode([
-            'result' => true,
+            'success' => true,
             'message' => 'Registro de uso eliminado satisfactoriamente',
             'data' => [
                 'outfitId' => $outfitId,
@@ -238,7 +236,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             ]
         ]);
     }
+} else {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Usuario no loggeado'
+    ]);
 }
-
-$con->close();
 ?>

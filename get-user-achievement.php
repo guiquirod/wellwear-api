@@ -7,10 +7,10 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
     if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         $userId = $_SESSION['user_id'];
 
-        $selectQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
-        $sth = $con->prepare($selectQuery);
+        $getUserAchievementsQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
+        $getUserAchievementsSth = $con->prepare($getUserAchievementsQuery);
 
-        if (!$sth) {
+        if (!$getUserAchievementsSth) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
@@ -19,11 +19,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             exit();
         }
 
-        $sth->bind_param('i', $userId);
+        $getUserAchievementsSth->bind_param('i', $userId);
 
-        if ($sth->execute()) {
-            $result = $sth->get_result();
-            $userAchievements = $result->fetch_assoc();
+        if ($getUserAchievementsSth->execute()) {
+            $userAchievementsResult = $getUserAchievementsSth->get_result();
+            $userAchievements = $userAchievementsResult->fetch_assoc();
 
             if ($userAchievements) {
                 http_response_code(200);
@@ -35,11 +35,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     ]
                 ]);
             } else {
-                $insertQuery = 'INSERT INTO user_level (user_id, level, current_points) VALUES (?, 1, 0)';
-                $insertSth = $con->prepare($insertQuery);
-                $insertSth->bind_param('i', $userId);
+                $insertPointsQuery = 'INSERT INTO user_level (user_id, level, current_points) VALUES (?, 1, 0)';
+                $insertPointsSth = $con->prepare($insertPointsQuery);
+                $insertPointsSth->bind_param('i', $userId);
 
-                if ($insertSth->execute()) {
+                if ($insertPointsSth->execute()) {
                     http_response_code(200);
                     echo json_encode([
                         'success' => true,
@@ -55,17 +55,17 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                         'message' => 'Error en el registo del reto'
                     ]);
                 }
-                $insertSth->close();
+                $insertPointsSth->close();
             }
         } else {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'message' => $sth->error
+                'message' => $getUserAchievementsSth->error
             ]);
         }
 
-        $sth->close();
+        $getUserAchievementsSth->close();
     }
 } else {
     http_response_code(400);

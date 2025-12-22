@@ -5,202 +5,205 @@ include 'cors-config.php';
 
 if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['user_id'])) {
     if ($_SERVER['REQUEST_METHOD'] == 'PUT') {
-        $json = file_get_contents('php://input');
-        $params = json_decode($json, true);
+        $data = json_decode(file_get_contents('php://input'), true);
 
         $userId = $_SESSION['user_id'];
-        $outfitId = $params['outfitId'] ?? null;
-        $garmentId = $params['garmentId'] ?? null;
+        $outfitId = $data['outfitId'] ?? null;
+        $garmentId = $data['garmentId'] ?? null;
 
         if (!$outfitId) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'ID de outfit requerido'
             ]);
             exit();
         }
 
-        $checkQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
-        $sth = $con->prepare($checkQuery);
+        $checkOutfitQuery = 'SELECT id FROM outfit WHERE id = ? AND user_id = ?';
+        $checkOutfitSth = $con->prepare($checkOutfitQuery);
 
-        if (!$sth) {
+        if (!$checkOutfitSth) {
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('ii', $outfitId, $userId);
-        $sth->execute();
-        $result = $sth->get_result();
+        $checkOutfitSth->bind_param('ii', $outfitId, $userId);
+        $checkOutfitSth->execute();
+        $outfitResult = $checkOutfitSth->get_result();
 
-        if ($result->num_rows === 0) {
-            $sth->close();
+        if ($outfitResult->num_rows === 0) {
+            $checkOutfitSth->close();
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Conjunto no encontrado'
             ]);
             exit();
         }
-        $sth->close();
+        $checkOutfitSth->close();
 
         $con->begin_transaction();
 
         if ($garmentId !== null) {
             $getCurrentGarmentsQuery = 'SELECT garment_id FROM outfit_garment WHERE outfit_id = ?';
-            $sth = $con->prepare($getCurrentGarmentsQuery);
+            $getCurrentGarmentsSth = $con->prepare($getCurrentGarmentsQuery);
 
-            if (!$sth) {
+            if (!$getCurrentGarmentsSth) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
+                    'success' => false,
                     'message' => $con->error
                 ]);
                 exit();
             }
 
-            $sth->bind_param('i', $outfitId);
-            $sth->execute();
-            $result = $sth->get_result();
+            $getCurrentGarmentsSth->bind_param('i', $outfitId);
+            $getCurrentGarmentsSth->execute();
+            $oldGarmentsResult = $getCurrentGarmentsSth->get_result();
             $oldGarmentIds = [];
-            while ($row = $result->fetch_assoc()) {
+            while ($row = $oldGarmentsResult->fetch_assoc()) {
                 $oldGarmentIds[] = $row['garment_id'];
             }
-            $sth->close();
+            $getCurrentGarmentsSth->close();
 
             $removedGarments = array_diff($oldGarmentIds, $garmentId);
             if (!empty($removedGarments)) {
                 $decrementQuery = 'UPDATE garment SET outfited = outfited - 1 WHERE id = ? AND outfited > 0';
-                $sth = $con->prepare($decrementQuery);
+                $decrementSth = $con->prepare($decrementQuery);
 
-                if (!$sth) {
+                if (!$decrementSth) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
+                        'success' => false,
                         'message' => $con->error
                     ]);
                     exit();
                 }
 
                 foreach ($removedGarments as $removedId) {
-                    $sth->bind_param('i', $removedId);
-                    if (!$sth->execute()) {
+                    $decrementSth->bind_param('i', $removedId);
+                    if (!$decrementSth->execute()) {
                         $con->rollback();
                         http_response_code(500);
                         echo json_encode([
-                            'result' => false,
-                            'message' => $sth->error
+                            'success' => false,
+                            'message' => $decrementSth->error
                         ]);
                         exit();
                     }
                 }
-                $sth->close();
+                $decrementSth->close();
             }
 
             $addedGarments = array_diff($garmentId, $oldGarmentIds);
             if (!empty($addedGarments)) {
                 $incrementQuery = 'UPDATE garment SET outfited = outfited + 1 WHERE id = ?';
-                $sth = $con->prepare($incrementQuery);
+                $incrementSth = $con->prepare($incrementQuery);
 
-                if (!$sth) {
+                if (!$incrementSth) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
+                        'success' => false,
                         'message' => $con->error
                     ]);
                     exit();
                 }
 
-                foreach ($addedGarments as $gId) {
-                    $sth->bind_param('i', $gId);
-                    if (!$sth->execute()) {
+                foreach ($addedGarments as $addedId) {
+                    $incrementSth->bind_param('i', $addedId);
+                    if (!$incrementSth->execute()) {
                         $con->rollback();
                         http_response_code(500);
                         echo json_encode([
-                            'result' => false,
-                            'message' => $sth->error
+                            'success' => false,
+                            'message' => $incrementSth->error
                         ]);
                         exit();
                     }
                 }
-                $sth->close();
+                $incrementSth->close();
             }
 
             $deleteGarmentsQuery = 'DELETE FROM outfit_garment WHERE outfit_id = ?';
-            $sth = $con->prepare($deleteGarmentsQuery);
+            $deleteGarmentSth = $con->prepare($deleteGarmentsQuery);
 
-            if (!$sth) {
+            if (!$deleteGarmentSth) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
+                    'success' => false,
                     'message' => $con->error
                 ]);
                 exit();
             }
 
-            $sth->bind_param('i', $outfitId);
+            $deleteGarmentSth->bind_param('i', $outfitId);
 
-            if (!$sth->execute()) {
+            if (!$deleteGarmentSth->execute()) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
-                    'message' => $sth->error
+                    'success' => false,
+                    'message' => $deleteGarmentSth->error
                 ]);
                 exit();
             }
-            $sth->close();
+            $deleteGarmentSth->close();
 
-            $insertQuery = 'INSERT INTO outfit_garment (outfit_id, garment_id) VALUES (?, ?)';
-            $sth = $con->prepare($insertQuery);
+            $insertGarmentQuery = 'INSERT INTO outfit_garment (outfit_id, garment_id) VALUES (?, ?)';
+            $insertGarmentSth = $con->prepare($insertGarmentQuery);
 
-            if (!$sth) {
+            if (!$insertGarmentSth) {
                 $con->rollback();
                 http_response_code(500);
                 echo json_encode([
-                    'result' => false,
+                    'success' => false,
                     'message' => $con->error
                 ]);
                 exit();
             }
 
             foreach ($garmentId as $gId) {
-                $sth->bind_param('ii', $outfitId, $gId);
+                $insertGarmentSth->bind_param('ii', $outfitId, $gId);
 
-                if (!$sth->execute()) {
+                if (!$insertGarmentSth->execute()) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
-                        'message' => $sth->error
+                        'success' => false,
+                        'message' => $insertGarmentSth->error
                     ]);
                     exit();
                 }
             }
-            $sth->close();
+            $insertGarmentSth->close();
         }
 
         $con->commit();
 
         http_response_code(200);
         echo json_encode([
-            'result' => true,
+            'success' => true,
             'message' => 'Outfit actualizado satisfactoriamente',
             'data' => [
                 'id' => $outfitId,
-                'garmentId' => $garmentId
+                'garmentIds' => $garmentId
             ]
         ]);
     }
+} else {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Usuario no loggeado'
+    ]);
 }
-
-$con->close();
 ?>

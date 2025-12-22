@@ -4,19 +4,18 @@ include 'db_config.php';
 include 'cors-config.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $input = file_get_contents('php://input');
-    $data = json_decode($input, true);
+    $data = json_decode(file_get_contents('php://input'), true);
 
     $emailForm = $data['email'] ?? $_REQUEST['email'] ?? null;
     $passwordForm = $data['password'] ?? $_REQUEST['password'] ?? null;
 
     if ($emailForm && $passwordForm) {
-        $query = 'SELECT id, email, password, name FROM users WHERE email = ?';
-        $sth = $con->prepare($query);
-        $sth->bind_param('s', $emailForm);
-        $sth->execute();
-        $result = $sth->get_result();
-        $data = $result->fetch_assoc();
+        $loginQuery = 'SELECT id, email, password, name FROM users WHERE email = ?';
+        $loginSth = $con->prepare($loginQuery);
+        $loginSth->bind_param('s', $emailForm);
+        $loginSth->execute();
+        $loginResult = $loginSth->get_result();
+        $data = $loginResult->fetch_assoc();
 
         if ($data && password_verify($passwordForm, $data['password'])) {
             $_SESSION['loggedin'] = true;
@@ -26,21 +25,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             http_response_code(200);
             echo json_encode([
-                'user_id' => (string)$data['id'],
-                'email' => $data['email'],
-                'name' => $data['name']
+                'success' => true,
+                'message' => 'Inicio satisfactorio',
+                'data' => [
+                    'email' => $data['email'],
+                    'name' => $data['name']
+                ]
             ]);
         } else {
             http_response_code(400);
             echo json_encode([
-                'error' => 'Email o contraseña no válidos'
+                'success' => false,
+                'message' => 'Email o contraseña no válidos'
             ]);
         }
-        $sth->close();
+        $loginSth->close();
     } else {
         http_response_code(400);
         echo json_encode([
-            'error' => 'Email y contraseña requeridos'
+            'success' => false,
+            'message' => 'Email y contraseña requeridos'
         ]);
     }
 }

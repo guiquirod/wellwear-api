@@ -7,14 +7,14 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
     if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         $userId = $_SESSION['user_id'];
 
-        $selectQuery = 'SELECT achievement.id, achievement.title, achievement.type, achievement.points, uap.completed_at
+        $getAchievementsQuery = 'SELECT achievement.id, achievement.title, achievement.type, achievement.points, uap.completed_at
                         FROM achievement
                         LEFT JOIN user_achievement_progress uap ON achievement.id = uap.achievement_id AND uap.user_id = ?
                         ORDER BY achievement.id';
 
-        $sth = $con->prepare($selectQuery);
+        $getAchievementsSth = $con->prepare($getAchievementsQuery);
 
-        if (!$sth) {
+        if (!$getAchievementsSth) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
@@ -23,13 +23,13 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             exit();
         }
 
-        $sth->bind_param('i', $userId);
+        $getAchievementsSth->bind_param('i', $userId);
 
-        if ($sth->execute()) {
-            $result = $sth->get_result();
+        if ($getAchievementsSth->execute()) {
+            $achievementsResult = $getAchievementsSth->get_result();
             $achievements = [];
 
-            while ($row = $result->fetch_assoc()) {
+            while ($row = $achievementsResult->fetch_assoc()) {
                 $completedAt = $row['completed_at'];
                 $completed = false;
 
@@ -37,7 +37,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     $completedTimestamp = strtotime($completedAt);
                     $currentTimestamp = time();
 
-                    if ($row['type'] === 'daily') {
+                    if ($row['type'] === 'automatic') {
+                        $completed = true;
+                    } else if ($row['type'] === 'daily') {
                         $completedDate = date('Y-m-d', $completedTimestamp);
                         $currentDate = date('Y-m-d', $currentTimestamp);
                         $completed = $completedDate >= $currentDate;
@@ -46,9 +48,9 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                         $currentWeekStart = strtotime('monday this week', $currentTimestamp);
                         $completed = $completedWeekStart >= $currentWeekStart;
                     } else if ($row['type'] === 'monthly') {
-                        $completedMonthStart = strtotime('first day of this month', $completedTimestamp);
-                        $currentMonthStart = strtotime('first day of this month', $currentTimestamp);
-                        $completed = $completedMonthStart >= $currentMonthStart;
+                        $completedYearMonth = date('Y-m', $completedTimestamp);
+                        $currentYearMonth = date('Y-m', $currentTimestamp);
+                        $completed = $completedYearMonth >= $currentYearMonth;
                     }
                 }
 
@@ -71,11 +73,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'message' => $sth->error
+                'message' => $getAchievementsSth->error
             ]);
         }
 
-        $sth->close();
+        $getAchievementsSth->close();
     }
 } else {
     http_response_code(400);

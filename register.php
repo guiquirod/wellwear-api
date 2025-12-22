@@ -4,8 +4,7 @@ include 'db_config.php';
 include 'cors-config.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $input = file_get_contents('php://input');
-    $data = json_decode($input, true);
+    $data = json_decode(file_get_contents('php://input'), true);
 
     $nameForm = $data['name'] ?? null;
     $emailForm = $data['email'] ?? null;
@@ -14,7 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!$nameForm || !$emailForm || !$passwordForm) {
         http_response_code(400);
         echo json_encode([
-            'error' => 'Datos de formulario incompletos'
+            'success' => false,
+            'message' => 'Datos de formulario incompletos'
         ]);
         exit();
     }
@@ -22,7 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!filter_var($emailForm, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode([
-            'error' => 'Formato de email inválido'
+            'success' => false,
+            'message' => 'Formato de email inválido'
         ]);
         exit();
     }
@@ -30,7 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (strlen($nameForm) > 30) {
         http_response_code(400);
         echo json_encode([
-            'error' => 'El nombre no puede tener más de 30 carácteres'
+            'success' => false,
+            'message' => 'El nombre no puede tener más de 30 carácteres'
         ]);
         exit();
     }
@@ -38,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (strlen($passwordForm) < 6) {
         http_response_code(400);
         echo json_encode([
-            'error' => 'La contraseña debe tener 6 carácteres mínimo'
+            'success' => false,
+            'message' => 'La contraseña debe tener 6 carácteres mínimo'
         ]);
         exit();
     }
@@ -46,53 +49,57 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (strlen($passwordForm) > 16) {
         http_response_code(400);
         echo json_encode([
-            'error' => 'La contraseña no puede tener más de 16 carácteres'
+            'success' => false,
+            'message' => 'La contraseña no puede tener más de 16 carácteres'
         ]);
         exit();
     }
 
-    $checkQuery = 'SELECT id FROM users WHERE email = ?';
-    $sth = $con->prepare($checkQuery);
+    $checkEmailQuery = 'SELECT id FROM users WHERE email = ?';
+    $checkEmailSth = $con->prepare($checkEmailQuery);
 
-    if (!$sth) {
+    if (!$checkEmailSth) {
         http_response_code(500);
         echo json_encode([
-            'error' => $con->error
+            'success' => false,
+            'message' => $con->error
         ]);
         exit();
     }
 
-    $sth->bind_param('s', $emailForm);
-    $sth->execute();
-    $result = $sth->get_result();
+    $checkEmailSth->bind_param('s', $emailForm);
+    $checkEmailSth->execute();
+    $checkEmailResult = $checkEmailSth->get_result();
 
-    if ($result->num_rows > 0) {
-        $sth->close();
+    if ($checkEmailResult->num_rows > 0) {
+        $checkEmailSth->close();
         http_response_code(409);
         echo json_encode([
-            'error' => 'Email ya registrado'
+            'success' => false,
+            'message' => 'Email ya registrado'
         ]);
         exit();
     }
-    $sth->close();
+    $checkEmailSth->close();
 
     $hashedPassword = password_hash($passwordForm, PASSWORD_BCRYPT);
-    $insertQuery = 'INSERT INTO users (email, password, name) VALUES (?, ?, ?)';
-    $sth = $con->prepare($insertQuery);
+    $createUserQuery = 'INSERT INTO users (email, password, name) VALUES (?, ?, ?)';
+    $createUserSth = $con->prepare($createUserQuery);
 
-    if (!$sth) {
+    if (!$createUserSth) {
         http_response_code(500);
         echo json_encode([
-            'error' => $con->error
+            'success' => false,
+            'message' => $con->error
         ]);
         exit();
     }
 
-    $sth->bind_param('sss', $emailForm, $hashedPassword, $nameForm);
+    $createUserSth->bind_param('sss', $emailForm, $hashedPassword, $nameForm);
 
-    if ($sth->execute()) {
-        $userId = $sth->insert_id;
-        $sth->close();
+    if ($createUserSth->execute()) {
+        $userId = $createUserSth->insert_id;
+        $createUserSth->close();
 
         $_SESSION['loggedin'] = true;
         $_SESSION['user_id'] = $userId;
@@ -101,15 +108,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         http_response_code(200);
         echo json_encode([
-            'user_id' => (string)$userId,
-            'email' => $emailForm,
-            'name' => $nameForm
+            'success' => true,
+            'message' => 'Registro exitoso',
+            'data' => [
+                'email' => $emailForm,
+                'name' => $nameForm
+            ]
         ]);
     } else {
-        $sth->close();
+        $createUserSth->close();
         http_response_code(500);
         echo json_encode([
-            'error' => $sth->error
+            'success' => false,
+            'message' => $createUserSth->error
         ]);
     }
 }

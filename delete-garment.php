@@ -5,31 +5,30 @@ include 'cors-config.php';
 
 if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['user_id'])) {
     if ($_SERVER['REQUEST_METHOD'] == 'DELETE') {
-        $json = file_get_contents('php://input');
-        $params = json_decode($json, true);
+        $data = json_decode(file_get_contents('php://input'), true);
 
         $userId = $_SESSION['user_id'];
-        $garmentId = $params['garmentId'] ?? null;
+        $garmentId = $data['garmentId'] ?? null;
 
         if (!$garmentId) {
             http_response_code(400);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Falta el ID de la prenda'
             ]);
             exit();
         }
 
         $existsQuery = 'SELECT id, picture FROM garment WHERE id = ? AND user_id = ?';
-        $sth = $con->prepare($existsQuery);
-        $sth->bind_param('ii', $garmentId, $userId);
-        $sth->execute();
-        $result = $sth->get_result();
+        $existsSth = $con->prepare($existsQuery);
+        $existsSth->bind_param('ii', $garmentId, $userId);
+        $existsSth->execute();
+        $result = $existsSth->get_result();
 
         if ($result->num_rows === 0) {
             http_response_code(404);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => 'Prenda no encontrada'
             ]);
             exit();
@@ -37,127 +36,127 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
 
         $garment = $result->fetch_assoc();
         $picturePath = $garment['picture'];
-        $sth->close();
+        $existsSth->close();
 
         $con->begin_transaction();
 
-        $affectedOutfitsQuery = 'SELECT DISTINCT outfit_id FROM outfit_garment WHERE garment_id = ?';
-        $sth = $con->prepare($affectedOutfitsQuery);
-        $sth->bind_param('i', $garmentId);
-        $sth->execute();
-        $result = $sth->get_result();
+        $affectedOutfitsQuery = 'SELECT outfit_id FROM outfit_garment WHERE garment_id = ?';
+        $affectedSth = $con->prepare($affectedOutfitsQuery);
+        $affectedSth->bind_param('i', $garmentId);
+        $affectedSth->execute();
+        $affectedResult = $affectedSth->get_result();
 
         $affectedOutfits = [];
-        while ($row = $result->fetch_assoc()) {
+        while ($row = $affectedResult->fetch_assoc()) {
             $affectedOutfits[] = $row['outfit_id'];
         }
-        $sth->close();
+        $affectedSth->close();
 
         $deleteGarmentRelationsQuery = 'DELETE FROM outfit_garment WHERE garment_id = ?';
-        $sth = $con->prepare($deleteGarmentRelationsQuery);
+        $deleteSth = $con->prepare($deleteGarmentRelationsQuery);
 
-        if (!$sth) {
+        if (!$deleteSth) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
+                'success' => false,
                 'message' => $con->error
             ]);
             exit();
         }
 
-        $sth->bind_param('i', $garmentId);
+        $deleteSth->bind_param('i', $garmentId);
 
-        if (!$sth->execute()) {
+        if (!$deleteSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $deleteSth->error
             ]);
             exit();
         }
-        $sth->close();
+        $deleteSth->close();
 
         foreach ($affectedOutfits as $outfitId) {
             $checkOutfitQuery = 'SELECT COUNT(*) as garment_count FROM outfit_garment WHERE outfit_id = ?';
-            $sth = $con->prepare($checkOutfitQuery);
-            $sth->bind_param('i', $outfitId);
-            $sth->execute();
-            $result = $sth->get_result();
+            $garmentAmountSth = $con->prepare($checkOutfitQuery);
+            $garmentAmountSth->bind_param('i', $outfitId);
+            $garmentAmountSth->execute();
+            $result = $garmentAmountSth->get_result();
             $row = $result->fetch_assoc();
             $garmentCount = $row['garment_count'];
-            $sth->close();
+            $garmentAmountSth->close();
 
             if ($garmentCount === 0) {
                 $deleteCalendarQuery = 'DELETE FROM outfit_calendar WHERE outfit_id = ?';
-                $sth = $con->prepare($deleteCalendarQuery);
+                $deleteOutfitSth = $con->prepare($deleteCalendarQuery);
 
-                if (!$sth) {
+                if (!$deleteOutfitSth) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
+                        'success' => false,
                         'message' => $con->error
                     ]);
                     exit();
                 }
 
-                $sth->bind_param('i', $outfitId);
-                if (!$sth->execute()) {
+                $deleteOutfitSth->bind_param('i', $outfitId);
+                if (!$deleteOutfitSth->execute()) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
-                        'message' => $sth->error
+                        'success' => false,
+                        'message' => $deleteOutfitSth->error
                     ]);
                     exit();
                 }
-                $sth->close();
+                $deleteOutfitSth->close();
 
                 $deleteEmptyOutfitQuery = 'DELETE FROM outfit WHERE id = ?';
-                $sth = $con->prepare($deleteEmptyOutfitQuery);
+                $deletOutfitSth = $con->prepare($deleteEmptyOutfitQuery);
 
-                if (!$sth) {
+                if (!$deletOutfitSth) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
+                        'success' => false,
                         'message' => $con->error
                     ]);
                     exit();
                 }
 
-                $sth->bind_param('i', $outfitId);
+                $deletOutfitSth->bind_param('i', $outfitId);
 
-                if (!$sth->execute()) {
+                if (!$deletOutfitSth->execute()) {
                     $con->rollback();
                     http_response_code(500);
                     echo json_encode([
-                        'result' => false,
-                        'message' => $sth->error
+                        'success' => false,
+                        'message' => $deletOutfitSth->error
                     ]);
                     exit();
                 }
-                $sth->close();
+                $deletOutfitSth->close();
             }
         }
 
         $deleteGarmentQuery = 'DELETE FROM garment WHERE id = ?';
-        $sth = $con->prepare($deleteGarmentQuery);
-        $sth->bind_param('i', $garmentId);
+        $deleteGarmentSth = $con->prepare($deleteGarmentQuery);
+        $deleteGarmentSth->bind_param('i', $garmentId);
 
-        if (!$sth->execute()) {
+        if (!$deleteGarmentSth->execute()) {
             $con->rollback();
             http_response_code(500);
             echo json_encode([
-                'result' => false,
-                'message' => $sth->error
+                'success' => false,
+                'message' => $deleteGarmentSth->error
             ]);
             exit();
         }
 
-        $sth->close();
+        $deleteGarmentSth->close();
         $con->commit();
 
         if ($picturePath && file_exists(__DIR__ . '/' . $picturePath)) {
@@ -166,11 +165,15 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
 
         http_response_code(200);
         echo json_encode([
-            'result' => true,
+            'success' => true,
             'message' => 'Prenda eliminada satisfactoriamente'
         ]);
     }
+} else {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Usuario no loggeado'
+    ]);
 }
-
-$con->close();
 ?>
