@@ -7,10 +7,10 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
     if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         $userId = $_SESSION['user_id'];
 
-        $getUserAchievementsQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
-        $getUserAchievementsSth = $con->prepare($getUserAchievementsQuery);
+        $getUserLevelQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
+        $getUserLevelSth = $con->prepare($getUserLevelQuery);
 
-        if (!$getUserAchievementsSth) {
+        if (!$getUserLevelSth) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
@@ -19,19 +19,19 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             exit();
         }
 
-        $getUserAchievementsSth->bind_param('i', $userId);
+        $getUserLevelSth->bind_param('i', $userId);
 
-        if ($getUserAchievementsSth->execute()) {
-            $userAchievementsResult = $getUserAchievementsSth->get_result();
-            $userAchievements = $userAchievementsResult->fetch_assoc();
+        if ($getUserLevelSth->execute()) {
+            $userLevelResult = $getUserLevelSth->get_result();
+            $userLevel = $userLevelResult->fetch_assoc();
 
-            if ($userAchievements) {
+            if ($userLevel) {
                 http_response_code(200);
                 echo json_encode([
                     'success' => true,
                     'data' => [
-                        'level' => (int)$userAchievements['level'],
-                        'currentPoints' => (int)$userAchievements['current_points']
+                        'level' => (int)$userLevel['level'],
+                        'currentPoints' => (int)$userLevel['current_points']
                     ]
                 ]);
             } else {
@@ -61,11 +61,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'message' => $getUserAchievementsSth->error
+                'message' => $getUserLevelSth->error
             ]);
         }
 
-        $getUserAchievementsSth->close();
+        $getUserLevelSth->close();
     }
 } else {
     http_response_code(400);
