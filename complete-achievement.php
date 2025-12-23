@@ -9,15 +9,6 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         $data = json_decode(file_get_contents('php://input'), true);
         $achievementId = isset($data['achievementId']) ? (int)$data['achievementId'] : null;
 
-        if (!$achievementId) {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Achievement ID required'
-            ]);
-            exit();
-        }
-
         $selectAchievementQuery = 'SELECT achievement.type, achievement.points, uap.completed_at
                                    FROM achievement
                                    LEFT JOIN user_achievement_progress uap ON achievement.id = uap.achievement_id AND uap.user_id = ?
