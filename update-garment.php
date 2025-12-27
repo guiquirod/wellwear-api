@@ -47,61 +47,14 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         $oldPicture = $existingGarment['picture'];
         $checkExistingGarmentSth->close();
 
-        $params = $_POST;
-
-        $updateQuery = '';
-        $queryParams = [];
-        $variableTypes = '';
-
-        if (isset($params['type'])) {
-            $updateQuery .= (($updateQuery != '') ? (", type = ?") : ("UPDATE garment SET type = ?"));
-            $queryParams[] = $params['type'];
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['supType'])) {
-            $updateQuery .= (($updateQuery != '') ? (", sup_type = ?") : ("UPDATE garment SET sup_type = ?"));
-            $queryParams[] = $params['supType'];
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['fabricType'])) {
-            $fabricTypes = $params['fabricType'];
-            $updateQuery .= (($updateQuery != '') ? (", fabric_type = ?") : ("UPDATE garment SET fabric_type = ?"));
-            $queryParams[] = $fabricTypes;
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['mainColor'])) {
-            $updateQuery .= (($updateQuery != '') ? (", main_color = ?") : ("UPDATE garment SET main_color = ?"));
-            $queryParams[] = $params['mainColor'];
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['sleeve'])) {
-            $updateQuery .= (($updateQuery != '') ? (", sleeve = ?") : ("UPDATE garment SET sleeve = ?"));
-            $queryParams[] = $params['sleeve'];
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['seasons'])) {
-            $seasons = $params['seasons'];
-            $updateQuery .= (($updateQuery != '') ? (", seasons = ?") : ("UPDATE garment SET seasons = ?"));
-            $queryParams[] = $seasons;
-            $variableTypes .= 's';
-        }
-
-        if (isset($params['pattern'])) {
-            $updateQuery .= (($updateQuery != '') ? (", pattern = ?") : ("UPDATE garment SET pattern = ?"));
-            $queryParams[] = $params['pattern'] === 'true' ? 1 : 0;
-            $variableTypes .= 'i';
-        }
-
-        if (isset($params['isSecondHand'])) {
-            $updateQuery .= (($updateQuery != '') ? (", is_second_hand = ?") : ("UPDATE garment SET is_second_hand = ?"));
-            $queryParams[] = $params['isSecondHand'] === 'true' ? 1 : 0;
-            $variableTypes .= 'i';
-        }
+        $type = $_POST['type'];
+        $supType = $_POST['supType'];
+        $fabricType = $_POST['fabricType'];
+        $mainColor = $_POST['mainColor'];
+        $sleeve = $_POST['sleeve'];
+        $seasons = $_POST['seasons'];
+        $pattern = $_POST['pattern'] === 'true' ? 1 : 0;
+        $isSecondHand = $_POST['isSecondHand'] === 'true' ? 1 : 0;
 
         $newPictureUrl = null;
         if (isset($_FILES['picture']) && $_FILES['picture']['error'] === UPLOAD_ERR_OK) {
@@ -133,25 +86,22 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             }
 
             $newPictureUrl = 'garments_images/' . $fileName;
-            $updateQuery .= (($updateQuery != '') ? (", picture = ?") : ("UPDATE garment SET picture = ?"));
+        }
+
+        $updateQuery = 'UPDATE garment SET type = ?, sup_type = ?, fabric_type = ?, main_color = ?, sleeve = ?, seasons = ?, pattern = ?, is_second_hand = ?';
+        $queryParams = [$type, $supType, $fabricType, $mainColor, $sleeve, $seasons, $pattern, $isSecondHand];
+        $variableTypes = 'ssssssii';
+
+        if ($newPictureUrl) {
+            $updateQuery .= ', picture = ?';
             $queryParams[] = $newPictureUrl;
             $variableTypes .= 's';
         }
 
-        if ($updateQuery == '') {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'No hay campos para actualizar'
-            ]);
-            exit();
-        }
-
+        $updateQuery .= ' WHERE id = ? AND user_id = ?';
         $queryParams[] = $garmentId;
         $queryParams[] = $userId;
         $variableTypes .= 'ii';
-
-        $updateQuery .= " WHERE id = ? AND user_id = ?";
 
         $updateSth = $con->prepare($updateQuery);
 
@@ -219,7 +169,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
     http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => 'Usuario no loggeado'
+        'message' => 'Usuario no logueado'
     ]);
 }
 ?>
