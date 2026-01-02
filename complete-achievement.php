@@ -69,10 +69,10 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             $insertUpdateSth->bind_param('ii', $userId, $achievementId);
 
             if ($insertUpdateSth->execute()) {
-                $selectUserAchievementQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
-                $userAchievementSth = $con->prepare($selectUserAchievementQuery);
+                $selectUserLevelQuery = 'SELECT level, current_points FROM user_level WHERE user_id = ?';
+                $userLevelSth = $con->prepare($selectUserLevelQuery);
 
-                if (!$userAchievementSth) {
+                if (!$userLevelSth) {
                     http_response_code(500);
                     echo json_encode([
                         'success' => false,
@@ -81,32 +81,32 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     exit();
                 }
 
-                $userAchievementSth->bind_param('i', $userId);
+                $userLevelSth->bind_param('i', $userId);
 
-                if (!$userAchievementSth->execute()) {
+                if (!$userLevelSth->execute()) {
                     http_response_code(500);
                     echo json_encode([
                         'success' => false,
-                        'message' => $userAchievementSth->error
+                        'message' => $userLevelSth->error
                     ]);
-                    $userAchievementSth->close();
+                    $userLevelSth->close();
                     exit();
                 }
 
-                $userAchievementResult = $userAchievementSth->get_result();
-                $userAchievement = $userAchievementResult->fetch_assoc();
+                $userLevelResult = $userLevelSth->get_result();
+                $userLevel = $userLevelResult->fetch_assoc();
 
-                if (!$userAchievement) {
-                    $insertUserAchievementQuery = 'INSERT INTO user_level (user_id, level, current_points) VALUES (?, 1, 0)';
-                    $insertUserSth = $con->prepare($insertUserAchievementQuery);
-                    $insertUserSth->bind_param('i', $userId);
-                    $insertUserSth->execute();
-                    $insertUserSth->close();
-                    $userAchievement = ['level' => 1, 'current_points' => 0];
+                if (!$userLevel) {
+                    $insertUserLevelQuery = 'INSERT INTO user_level (user_id, level, current_points) VALUES (?, 1, 0)';
+                    $insertUserLevelSth = $con->prepare($insertUserLevelQuery);
+                    $insertUserLevelSth->bind_param('i', $userId);
+                    $insertUserLevelSth->execute();
+                    $insertUserLevelSth->close();
+                    $userLevel = ['level' => 1, 'current_points' => 0];
                 }
 
-                $currentLevel = (int)$userAchievement['level'];
-                $currentPoints = (int)$userAchievement['current_points'];
+                $currentLevel = (int)$userLevel['level'];
+                $currentPoints = (int)$userLevel['current_points'];
                 $pointsToAdd = (int)$achievement['points'];
                 $newPoints = $currentPoints + $pointsToAdd;
 
@@ -124,7 +124,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                         'success' => false,
                         'message' => $con->error
                     ]);
-                    $userAchievementSth->close();
+                    $userLevelSth->close();
                     exit();
                 }
 
@@ -137,7 +137,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                         'message' => $updatePointsSth->error
                     ]);
                     $updatePointsSth->close();
-                    $userAchievementSth->close();
+                    $userLevelSth->close();
                     exit();
                 }
 
@@ -152,7 +152,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     ]
                 ]);
 
-                $userAchievementSth->close();
+                $userLevelSth->close();
             } else {
                 http_response_code(500);
                 echo json_encode([

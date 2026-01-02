@@ -132,11 +132,11 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
         $outfitId = $data['outfitId'] ?? null;
         $wornDate = $data['wornDate'] ?? $data['date'];
 
-        if (!$outfitId || !$wornDate) {
+        if (!$outfitId) {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'message' => 'Faltan el ID del outfit o la fecha'
+                'message' => 'Faltan el ID del outfit'
             ]);
             exit();
         }

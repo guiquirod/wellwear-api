@@ -83,7 +83,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
             ]);
             exit();
         }
-e
+
         if (empty($seasonsDecoded)) {
             http_response_code(400);
             echo json_encode([

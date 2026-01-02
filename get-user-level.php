@@ -52,7 +52,7 @@ if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SES
                     http_response_code(500);
                     echo json_encode([
                         'success' => false,
-                        'message' => 'Error en el registo del reto'
+                        'message' => 'Error en el registo del nivel'
                     ]);
                 }
                 $insertPointsSth->close();
